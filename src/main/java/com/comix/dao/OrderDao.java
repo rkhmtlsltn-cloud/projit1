@@ -13,34 +13,20 @@ public class OrderDao {
         con.setAutoCommit(false);
 
         try {
-            PreparedStatement st0 = con.prepareStatement("select id from customers where id = ?");
-            st0.setInt(1, customerId);
-            ResultSet rs0 = st0.executeQuery();
-            if (!rs0.next()) {
-                rs0.close();
-                st0.close();
-                con.rollback();
-                con.close();
-                return -1;
-            }
-            rs0.close();
-            st0.close();
+            PreparedStatement st = con.prepareStatement(
+                    "select price, stock from comics where id = ?"
+            );
+            st.setInt(1, comicId);
+            ResultSet rs = st.executeQuery();
 
-            PreparedStatement st1 = con.prepareStatement("select price, stock from comics where id = ?");
-            st1.setInt(1, comicId);
-            ResultSet rs1 = st1.executeQuery();
-            if (!rs1.next()) {
-                rs1.close();
-                st1.close();
+            if (!rs.next()) {
                 con.rollback();
                 con.close();
                 return -2;
             }
 
-            double price = rs1.getDouble("price");
-            int stock = rs1.getInt("stock");
-            rs1.close();
-            st1.close();
+            double price = rs.getDouble(1);
+            int stock = rs.getInt(2);
 
             if (stock < qty) {
                 con.rollback();
@@ -48,40 +34,35 @@ public class OrderDao {
                 return -3;
             }
 
-            PreparedStatement st2 = con.prepareStatement("update comics set stock = stock - ? where id = ?");
-            st2.setInt(1, qty);
-            st2.setInt(2, comicId);
-            st2.executeUpdate();
-            st2.close();
+            PreparedStatement updateStock = con.prepareStatement(
+                    "update comics set stock = stock - ? where id = ?"
+            );
+            updateStock.setInt(1, qty);
+            updateStock.setInt(2, comicId);
+            updateStock.executeUpdate();
 
-            PreparedStatement st3 = con.prepareStatement("insert into orders(customer_id, total) values(?, 0) returning id");
-            st3.setInt(1, customerId);
-            ResultSet rs3 = st3.executeQuery();
-            rs3.next();
-            int orderId = rs3.getInt("id");
-            rs3.close();
-            st3.close();
+            PreparedStatement createOrder = con.prepareStatement(
+                    "insert into orders(customer_id, total) values(?, ?) returning id"
+            );
+            createOrder.setInt(1, customerId);
+            createOrder.setDouble(2, price * qty);
+            ResultSet orderRs = createOrder.executeQuery();
+            orderRs.next();
+            int orderId = orderRs.getInt(1);
 
-            PreparedStatement st4 = con.prepareStatement(
+            PreparedStatement addItem = con.prepareStatement(
                     "insert into order_items(order_id, comic_id, quantity, price_at_purchase) values(?,?,?,?)"
             );
-            st4.setInt(1, orderId);
-            st4.setInt(2, comicId);
-            st4.setInt(3, qty);
-            st4.setDouble(4, price);
-            st4.executeUpdate();
-            st4.close();
-
-            double total = price * qty;
-            PreparedStatement st5 = con.prepareStatement("update orders set total = ? where id = ?");
-            st5.setDouble(1, total);
-            st5.setInt(2, orderId);
-            st5.executeUpdate();
-            st5.close();
+            addItem.setInt(1, orderId);
+            addItem.setInt(2, comicId);
+            addItem.setInt(3, qty);
+            addItem.setDouble(4, price);
+            addItem.executeUpdate();
 
             con.commit();
             con.close();
             return orderId;
+
         } catch (Exception e) {
             con.rollback();
             con.close();
