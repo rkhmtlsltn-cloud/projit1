@@ -4,5 +4,6 @@ insert into comics(title, price, stock) values
 ('Berserk Vol. 1', 6200, 3);
 
 insert into customers(name) values
-('Aruzhan'),
-('Dias');
+('Akdana'),
+('Abyaly'),
+  ('Sultan-Ali');
