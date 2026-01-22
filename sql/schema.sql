@@ -23,3 +23,5 @@ create table order_items (
   quantity int,
   price_at_purchase numeric(10,2)
 );
+
+TRUNCATE TABLE order_items, orders, comics, customers RESTART IDENTITY CASCADE;
