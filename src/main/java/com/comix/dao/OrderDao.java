@@ -1,6 +1,8 @@
 package com.comix.dao;
 
 import com.comix.config.Database;
+import com.comix.model.FullOrderDescription;
+import com.comix.model.OrderLine;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -9,7 +11,7 @@ import java.sql.ResultSet;
 public class OrderDao {
 
     public int buy(int customerId, int comicId, int qty) throws Exception {
-        Connection con = Database.getConnection();
+        Connection con = Database.getInstance().getConnection();
         con.setAutoCommit(false);
 
         try {
@@ -49,6 +51,44 @@ public class OrderDao {
             throw e;
         }
     }
+
+    public FullOrderDescription getFullOrderDescription(int orderId) throws Exception {
+        Connection con = Database.getInstance().getConnection();
+        PreparedStatement st = con.prepareStatement(
+                "select o.id, c.id, c.name, o.total, oi.id, cm.id, cm.title, oi.quantity, oi.price_at_purchase " +
+                        "from orders o " +
+                        "join customers c on c.id=o.customer_id " +
+                        "join order_items oi on oi.order_id=o.id " +
+                        "join comics cm on cm.id=oi.comic_id " +
+                        "where o.id=? " +
+                        "order by oi.id"
+        );
+        st.setInt(1, orderId);
+
+        ResultSet rs = st.executeQuery();
+
+        FullOrderDescription full = null;
+
+        while (rs.next()) {
+            if (full == null) {
+                full = new FullOrderDescription(
+                        rs.getInt(1),
+                        rs.getInt(2),
+                        rs.getString(3),
+                        rs.getDouble(4)
+                );
+            }
+
+            full.items.add(new OrderLine(
+                    rs.getInt(5),
+                    rs.getInt(6),
+                    rs.getString(7),
+                    rs.getInt(8),
+                    rs.getDouble(9)
+            ));
+        }
+
+        con.close();
+        return full;
+    }
 }
-
-

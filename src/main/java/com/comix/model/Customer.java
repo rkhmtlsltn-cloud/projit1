@@ -1,19 +1,13 @@
 package com.comix.model;
 
 public class Customer {
-    private int id;
-    private String name;
+    public int id;
+    public String name;
+    public String role;
 
-    public Customer(int id, String name) {
+    public Customer(int id, String name, String role) {
         this.id = id;
         this.name = name;
-    }
-
-    public int getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
+        this.role = role;
     }
 }
