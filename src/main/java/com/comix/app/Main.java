@@ -1,10 +1,7 @@
 package com.comix.app;
 
 import com.comix.dao.DaoFactory;
-import com.comix.model.Comic;
-import com.comix.model.Customer;
-import com.comix.model.FullOrderDescription;
-import com.comix.model.OrderLine;
+import com.comix.model.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -16,83 +13,58 @@ public class Main {
         return s == null || s.trim().isEmpty();
     }
 
-    private static String line(int n) {
-        String s = "";
-        for (int i = 0; i < n; i++) s += "─";
-        return s;
-    }
-
-    private static void boxTitle(String title) {
-        int w = 64;
-        System.out.println("┌" + line(w) + "┐");
-        String t = " " + title + " ";
-        int left = (w - t.length()) / 2;
-        int right = w - t.length() - left;
-        System.out.println("│" + " ".repeat(left) + t + " ".repeat(right) + "│");
-        System.out.println("└" + line(w) + "┘");
-    }
-
-    private static void wrapPrint(String text, int width) {
-        String s = text == null ? "" : text.trim();
-        if (s.isEmpty()) {
-            System.out.println("(no text)");
-            return;
-        }
-        while (!s.isEmpty()) {
-            if (s.length() <= width) {
-                System.out.println(s);
-                break;
+    private static int askInt(Scanner sc, String msg) {
+        while (true) {
+            System.out.print(msg);
+            try {
+                return Integer.parseInt(sc.nextLine().trim());
+            } catch (Exception e) {
+                System.out.println("Enter a number");
             }
-            int cut = width;
-            while (cut > 0 && s.charAt(cut - 1) != ' ') cut--;
-            if (cut == 0) cut = width;
-            System.out.println(s.substring(0, cut).trim());
-            s = s.substring(cut).trim();
         }
     }
 
-    private static void pause(Scanner sc) {
-        System.out.println();
-        System.out.print("Press Enter...");
-        sc.nextLine();
-        System.out.println();
+    private static double askDouble(Scanner sc, String msg) {
+        while (true) {
+            System.out.print(msg);
+            try {
+                return Double.parseDouble(sc.nextLine().trim());
+            } catch (Exception e) {
+                System.out.println("Enter a number");
+            }
+        }
     }
 
-    private static int askInt(Scanner sc, String prompt) {
-        System.out.print(prompt);
-        return Integer.parseInt(sc.nextLine());
-    }
-
-    private static double askDouble(Scanner sc, String prompt) {
-        System.out.print(prompt);
-        return Double.parseDouble(sc.nextLine());
-    }
-
-    private static String askStr(Scanner sc, String prompt) {
-        System.out.print(prompt);
+    private static String askStr(Scanner sc, String msg) {
+        System.out.print(msg);
         return sc.nextLine();
     }
 
-    private static boolean canAdd(Customer u) {
-        return "ADMIN".equals(u.role) || "MANAGER".equals(u.role);
+    private static void pause(Scanner sc) {
+        System.out.print("Press Enter...");
+        sc.nextLine();
     }
 
-    private static boolean canViewOrder(Customer u) {
-        return "ADMIN".equals(u.role) || "MANAGER".equals(u.role);
+    private static boolean isAdmin(Customer u) {
+        return u.role != null && u.role.equalsIgnoreCase("ADMIN");
+    }
+
+    private static boolean canManage(Customer u) {
+        return u.role != null && (u.role.equalsIgnoreCase("ADMIN") || u.role.equalsIgnoreCase("MANAGER"));
     }
 
     private static void menu(Customer u) {
-        boxTitle("COMIX Manga Shop");
-        System.out.println("User: " + u.name + " | role=" + u.role);
-        System.out.println();
+        System.out.println("\n=== COMIX SHOP ===");
+        System.out.println("User: " + u.name + " | " + u.role);
         System.out.println("1  Show all comics");
         System.out.println("2  View comic by id");
         System.out.println("3  Add comic (ADMIN/MANAGER)");
         System.out.println("4  Buy comic");
-        System.out.println("5  Show comics by category");
-        System.out.println("6  Full order (JOIN) (ADMIN/MANAGER)");
-        System.out.println("7  Read manga (text)");
-        System.out.println("8  Read Chapters (text)");
+        System.out.println("5  Comics by category");
+        System.out.println("6  Full order (ADMIN/MANAGER)");
+        System.out.println("7  Read manga");
+        System.out.println("8  Read chapters");
+        System.out.println("9  Delete comic (ADMIN)");
         System.out.println("0  Exit");
         System.out.print("Choose: ");
     }
@@ -101,230 +73,187 @@ public class Main {
         Scanner sc = new Scanner(System.in);
         DaoFactory f = DaoFactory.getInstance();
 
-        Customer current = null;
-
-        while (current == null) {
+        Customer user = null;
+        while (user == null) {
+            int id = askInt(sc, "Login customer id: ");
             try {
-                int id = askInt(sc, "Login customer id: ");
-                current = f.customerDao().getById(id);
-                if (current == null) System.out.println("Customer not found");
-                else System.out.println("Logged in: " + current.name + " role=" + current.role);
+                user = f.customerDao().getById(id);
+                if (user == null) System.out.println("Not found");
             } catch (Exception e) {
-                System.out.println("Error: " + e.getMessage());
+                System.out.println("DB error");
             }
         }
 
-        final Customer user = current;
+        final Customer currentUser = user;
 
         Map<String, Runnable> actions = new HashMap<>();
 
         actions.put("1", () -> {
             try {
-                boxTitle("COMICS LIST");
-                f.comicDao().getAll().forEach(c ->
-                        System.out.println(String.format("%-3d | %-28s | %7.2f | stock=%-3d | %-10s",
-                                c.id, c.title, c.price, c.stock, c.category))
-                );
-                pause(sc);
+                for (Comic c : f.comicDao().getAll()) {
+                    System.out.println(c.id + " | " + c.title + " | " + c.price + " | stock=" + c.stock);
+                }
             } catch (Exception e) {
-                System.out.println("Error: " + e.getMessage());
-                pause(sc);
+                System.out.println("Error");
             }
+            pause(sc);
         });
 
         actions.put("2", () -> {
+            int id = askInt(sc, "Comic id: ");
             try {
-                int id = askInt(sc, "Comic id: ");
                 Comic c = f.comicDao().getById(id);
-                if (c == null) {
-                    System.out.println("Not found");
-                } else {
-                    boxTitle("COMIC DETAILS");
-                    System.out.println("Id: " + c.id);
+                if (c == null) System.out.println("Not found");
+                else {
                     System.out.println("Title: " + c.title);
+                    System.out.println("Category: " + c.category);
                     System.out.println("Price: " + c.price);
                     System.out.println("Stock: " + c.stock);
-                    System.out.println("Category: " + c.category);
                 }
-                pause(sc);
             } catch (Exception e) {
-                System.out.println("Error: " + e.getMessage());
-                pause(sc);
+                System.out.println("Error");
             }
+            pause(sc);
         });
 
         actions.put("3", () -> {
-            try {
-                if (!canAdd(user)) {
-                    System.out.println("Access denied");
-                    pause(sc);
-                    return;
-                }
-
-                String t = askStr(sc, "Title: ");
-                double p = askDouble(sc, "Price: ");
-                int s = askInt(sc, "Stock: ");
-                String cat = askStr(sc, "Category: ");
-                String story = askStr(sc, "Story (text): ");
-
-                if (isBlank(t) || isBlank(cat) || p <= 0 || s < 0) {
-                    System.out.println("Validation error");
-                    pause(sc);
-                    return;
-                }
-
-                f.comicDao().add(t, p, s, cat, story == null ? "" : story);
-                System.out.println("Comic added");
+            if (!canManage(currentUser)) {
+                System.out.println("Access denied");
                 pause(sc);
-            } catch (Exception e) {
-                System.out.println("Error: " + e.getMessage());
-                pause(sc);
-            }
-        });
-
-        actions.put("4", () -> {
-            try {
-                int mid = askInt(sc, "Comic id: ");
-                int q = askInt(sc, "Quantity: ");
-
-                if (q <= 0) {
-                    System.out.println("Validation error");
-                    pause(sc);
-                    return;
-                }
-
-                int r = f.orderDao().buy(user.id, mid, q);
-
-                if (r == -2) System.out.println("Buy error: comic not found");
-                else if (r == -3) System.out.println("Buy error: not enough stock");
-                else if (r < 0) System.out.println("Buy error");
-                else System.out.println("Order created, id=" + r);
-
-                pause(sc);
-            } catch (Exception e) {
-                System.out.println("Error: " + e.getMessage());
-                pause(sc);
-            }
-        });
-
-        actions.put("5", () -> {
-            try {
-                String cat = askStr(sc, "Category: ");
-                if (isBlank(cat)) {
-                    System.out.println("Validation error");
-                    pause(sc);
-                    return;
-                }
-
-                boxTitle("CATEGORY: " + cat);
-                f.comicDao().getByCategory(cat).forEach(c ->
-                        System.out.println(String.format("%-3d | %-28s | %7.2f | stock=%-3d",
-                                c.id, c.title, c.price, c.stock))
-                );
-                pause(sc);
-            } catch (Exception e) {
-                System.out.println("Error: " + e.getMessage());
-                pause(sc);
-            }
-        });
-
-        actions.put("6", () -> {
-            try {
-                if (!canViewOrder(user)) {
-                    System.out.println("Access denied");
-                    pause(sc);
-                    return;
-                }
-
-                int oid = askInt(sc, "Order id: ");
-                FullOrderDescription fo = f.orderDao().getFullOrderDescription(oid);
-
-                if (fo == null) {
-                    System.out.println("Order not found");
-                    pause(sc);
-                    return;
-                }
-
-                boxTitle("FULL ORDER (JOIN)");
-                System.out.println("Order: " + fo.orderId);
-                System.out.println("Customer: " + fo.customerId + " " + fo.customerName);
-                System.out.println("Total: " + fo.total);
-                System.out.println(line(64));
-
-                for (OrderLine it : fo.items) {
-                    System.out.println(String.format("Item %-3d | %-26s | qty=%-3d | price=%7.2f",
-                            it.itemId, it.title, it.quantity, it.priceAtPurchase));
-                }
-
-                pause(sc);
-            } catch (Exception e) {
-                System.out.println("Error: " + e.getMessage());
-                pause(sc);
-            }
-        });
-
-        actions.put("7", () -> {
-            try {
-                int id = askInt(sc, "Comic id to read: ");
-                Comic c = f.comicDao().getById(id);
-
-                if (c == null) {
-                    System.out.println("Not found");
-                    pause(sc);
-                    return;
-                }
-
-                boxTitle("READING: " + c.title);
-                System.out.println("Category: " + c.category);
-                System.out.println("Price: " + c.price + " | Stock: " + c.stock);
-                System.out.println();
-                wrapPrint(c.story, 70);
-                pause(sc);
-            } catch (Exception e) {
-                System.out.println("Error: " + e.getMessage());
-                pause(sc);
-            }
-        });
-
-        actions.put("8", () -> {
-            try {
-                int id = askInt(sc, "Comic id: ");
-                var chapters = f.chapterDao().getByComic(id);
-
-                if (chapters.isEmpty()) {
-                    System.out.println("No chapters available");
-                    pause(sc);
-                    return;
-                }
-
-                for (var ch : chapters) {
-                    boxTitle("Chapter " + ch.number + ": " + ch.title);
-                    wrapPrint(ch.text, 70);
-                    pause(sc);
-                }
-            } catch (Exception e) {
-                System.out.println("Error: " + e.getMessage());
-                pause(sc);
-            }
-        });
-
-
-        while (true) {
-            menu(user);
-            String choice = sc.nextLine();
-
-            if ("0".equals(choice)) {
-                sc.close();
                 return;
             }
 
-            Runnable action = actions.get(choice);
-            if (action == null) {
+            String t = askStr(sc, "Title: ");
+            double p = askDouble(sc, "Price: ");
+            int s = askInt(sc, "Stock: ");
+            String cat = askStr(sc, "Category: ");
+            String story = askStr(sc, "Story: ");
+
+            if (isBlank(t) || isBlank(cat) || p <= 0 || s < 0) {
+                System.out.println("Validation error");
+                pause(sc);
+                return;
+            }
+
+            try {
+                f.comicDao().add(t, p, s, cat, story);
+                System.out.println("Added");
+            } catch (Exception e) {
+                System.out.println("Error");
+            }
+            pause(sc);
+        });
+
+        actions.put("4", () -> {
+            int cid = askInt(sc, "Comic id: ");
+            int q = askInt(sc, "Qty: ");
+            try {
+                int r = f.orderDao().buy(currentUser.id, cid, q);
+                if (r > 0) System.out.println("Order id=" + r);
+                else if (r == -2) System.out.println("Comic not found");
+                else if (r == -3) System.out.println("Not enough stock");
+                else System.out.println("Buy error");
+            } catch (Exception e) {
+                System.out.println("Error");
+            }
+            pause(sc);
+        });
+
+        actions.put("5", () -> {
+            String cat = askStr(sc, "Category: ");
+            if (isBlank(cat)) {
+                System.out.println("Validation error");
+                pause(sc);
+                return;
+            }
+            try {
+                for (Comic c : f.comicDao().getByCategory(cat)) {
+                    System.out.println(c.id + " | " + c.title);
+                }
+            } catch (Exception e) {
+                System.out.println("Error");
+            }
+            pause(sc);
+        });
+
+        actions.put("6", () -> {
+            if (!canManage(currentUser)) {
+                System.out.println("Access denied");
+                pause(sc);
+                return;
+            }
+
+            int oid = askInt(sc, "Order id: ");
+            try {
+                FullOrderDescription fo = f.orderDao().getFullOrderDescription(oid);
+                if (fo == null) System.out.println("Not found");
+                else {
+                    System.out.println("Order " + fo.orderId + " Total=" + fo.total);
+                    System.out.println("Customer: " + fo.customerId + " " + fo.customerName);
+                    for (OrderLine i : fo.items) {
+                        System.out.println(i.title + " x" + i.quantity + " | " + i.priceAtPurchase);
+                    }
+                }
+            } catch (Exception e) {
+                System.out.println("Error");
+            }
+            pause(sc);
+        });
+
+        actions.put("7", () -> {
+            int id = askInt(sc, "Comic id: ");
+            try {
+                Comic c = f.comicDao().getById(id);
+                if (c == null) System.out.println("Not found");
+                else System.out.println(c.story);
+            } catch (Exception e) {
+                System.out.println("Error");
+            }
+            pause(sc);
+        });
+
+        actions.put("8", () -> {
+            int id = askInt(sc, "Comic id: ");
+            try {
+                var chapters = f.chapterDao().getByComic(id);
+                if (chapters.isEmpty()) System.out.println("No chapters");
+                for (Chapter ch : chapters) {
+                    System.out.println("\nChapter " + ch.number + " - " + ch.title);
+                    System.out.println(ch.text);
+                }
+            } catch (Exception e) {
+                System.out.println("Error");
+            }
+            pause(sc);
+        });
+
+        actions.put("9", () -> {
+            if (!isAdmin(currentUser)) {
+                System.out.println("Access denied");
+                pause(sc);
+                return;
+            }
+
+            int id = askInt(sc, "Comic id to delete: ");
+            try {
+                boolean ok = f.comicDao().deleteById(id);
+                if (ok) System.out.println("Deleted");
+                else System.out.println("Not found");
+            } catch (Exception e) {
+                System.out.println("Error");
+            }
+            pause(sc);
+        });
+
+        while (true) {
+            menu(currentUser);
+            String c = sc.nextLine().trim();
+            if (c.equals("0")) break;
+            actions.getOrDefault(c, () -> {
                 System.out.println("Wrong choice");
                 pause(sc);
-            } else {
-                action.run();
-            }
+            }).run();
         }
     }
 }
+
