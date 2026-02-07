@@ -1,13 +1,8 @@
-drop table if exists comic_chapters cascade;
-drop table if exists order_items cascade;
-drop table if exists orders cascade;
-drop table if exists comics cascade;
-drop table if exists customers cascade;
-
 create table customers (
     id serial primary key,
     name varchar(120) not null,
-    role varchar(20) not null
+    role varchar(20) not null,
+    constraint chk_role check (role in ('ADMIN','MANAGER','CUSTOMER'))
 );
 
 create table comics (
@@ -16,7 +11,9 @@ create table comics (
     price numeric(10,2) not null,
     stock int not null,
     category varchar(50) not null,
-    story text not null default ''
+    story text not null default '',
+    constraint chk_price check (price > 0),
+    constraint chk_stock check (stock >= 0)
 );
 
 create table orders (
@@ -25,7 +22,8 @@ create table orders (
     total numeric(10,2) not null,
     constraint fk_orders_customer
         foreign key (customer_id)
-        references customers(id)
+        references customers(id),
+    constraint chk_total check (total >= 0)
 );
 
 create table order_items (
@@ -41,6 +39,9 @@ create table order_items (
     constraint fk_items_comic
         foreign key (comic_id)
         references comics(id)
+        on delete cascade,
+    constraint chk_qty check (quantity > 0),
+    constraint chk_price_purchase check (price_at_purchase > 0)
 );
 
 create table comic_chapters (
