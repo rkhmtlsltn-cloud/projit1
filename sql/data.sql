@@ -68,3 +68,5 @@ insert into comic_chapters(comic_id, chapter_number, title, text) values
 'A mysterious mark attracts monsters...'),
 ((select id from comics where title='Berserk Vol. 1'), 3, 'Revenge',
 'Driven by hatred and pain, Guts continues his journey...');
+
+
